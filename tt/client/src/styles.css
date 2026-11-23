@@ -1,0 +1,48 @@
+:root{--bg:#e9eef5;--surface:#fff;--ink:#14213d;--muted:#5d6b85;--line:#d3dbe8;--accent:#0f8b8d;--accent-ink:#fff;--high:#c8372d;--med:#c98a0b;--low:#2f7d4f;--danger:#c8372d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1626;--surface:#17233a;--ink:#e8eefb;--muted:#92a2c0;--line:#2a3a58;--accent:#3fc1c3;--accent-ink:#06222a;--high:#ff7b70;--med:#f0b84a;--low:#6fcf97;--danger:#ff7b70}}
+:root[data-theme="dark"]{--bg:#0e1626;--surface:#17233a;--ink:#e8eefb;--muted:#92a2c0;--line:#2a3a58;--accent:#3fc1c3;--accent-ink:#06222a;--high:#ff7b70;--med:#f0b84a;--low:#6fcf97;--danger:#ff7b70}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+h1{font-size:2.2rem;font-weight:800;margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:2px 0 0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.progress{height:10px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 20px}
+.progress>div{height:100%;background:var(--accent);transition:width .3s}
+.error{background:var(--danger);color:#fff;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.add{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:10px;grid-template-columns:1fr 1fr 1fr;margin-bottom:18px}
+.add .title{grid-column:1/-1}
+.add input,.add select,.search{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 16px;font-weight:600}
+.add .primary{grid-column:1/-1}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;border:1px solid var(--line);border-radius:99px;padding:6px 14px}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar .search{flex:1;min-width:140px;width:auto}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+li{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--muted);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start}
+li.p-high{border-left-color:var(--high)}li.p-medium{border-left-color:var(--med)}li.p-low{border-left-color:var(--low)}
+li input[type=checkbox]{width:22px;height:22px;margin-top:2px;accent-color:var(--accent);flex:none}
+.body{flex:1;min-width:0}
+.t{font-weight:600;overflow-wrap:anywhere;cursor:text}
+li.done .t{text-decoration:line-through;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;font-size:.85rem;color:var(--muted);margin-top:4px}
+.meta .overdue{color:var(--danger);font-weight:600}
+.chip{border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.edit{width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:6px 8px}
+.row-btns{display:flex;gap:4px;flex:none}
+.row-btns button{background:transparent;border:0;border-radius:8px;padding:4px 8px;color:var(--muted)}
+.row-btns button:hover{background:var(--bg);color:var(--ink)}
+.row-btns .del:hover{color:var(--danger)}
+.empty{text-align:center;color:var(--muted);padding:36px 12px;border:1px dashed var(--line);border-radius:12px}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:.9rem}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;padding:4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;gap:14px;align-items:center}
+.toast button{background:none;border:0;color:var(--accent);font-weight:700;filter:brightness(1.4)}
+@media (max-width:520px){.add{grid-template-columns:1fr 1fr}h1{font-size:1.8rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
