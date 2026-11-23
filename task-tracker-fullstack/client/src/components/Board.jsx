@@ -40,20 +40,19 @@ export default function Board({ tasks, onOpen, onReorder }) {
         {COLUMNS.map((status) => {
           const columnTasks = tasks.filter((t) => t.status === status);
           return (
-            <section
-              key={status}
-              className={"column column-" + status}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => drop(status, null)}
-            >
-              <h2>{STATUS_LABELS[status]} <span className="muted">({columnTasks.length})</span></h2>
+            <section key={status} className="column" onDragOver={(e) => e.preventDefault()} onDrop={() => drop(status, null)}>
+              <h2 className="column-title">
+                <span className={"dot dot-" + status} />
+                {STATUS_LABELS[status]}
+                <span className="count">{columnTasks.length}</span>
+              </h2>
 
               {columnTasks.length === 0 && <p className="muted small">No tasks here</p>}
 
               {columnTasks.map((task) => (
                 <div
                   key={task.id}
-                  className={"card priority-" + task.priority + (dragId === task.id ? " dragging" : "")}
+                  className={dragId === task.id ? "card dragging" : "card"}
                   draggable
                   tabIndex={0}
                   onDragStart={() => setDragId(task.id)}
@@ -64,11 +63,20 @@ export default function Board({ tasks, onOpen, onReorder }) {
                   onKeyDown={(e) => e.key === "Enter" && onOpen(task.id)}
                 >
                   <div className={task.status === "done" ? "card-title done-text" : "card-title"}>{task.title}</div>
+
+                  {task.tags.length > 0 && (
+                    <div className="tag-row">
+                      {task.tags.map((tag) => <span key={tag} className="tag plain">{tag}</span>)}
+                    </div>
+                  )}
+
                   <div className="card-meta">
                     <span className={"tag " + task.priority}>{task.priority}</span>
-                    <span>{task.category}</span>
                     {task.due && <span className={isOverdue(task) ? "overdue" : ""}>{formatDate(task.due)}</span>}
                     {task.subtasks.length > 0 && <span>Subtasks {subtaskProgress(task)}</span>}
+                    {task.attachments.length > 0 && <span>{task.attachments.length} file(s)</span>}
+                    {!task.is_owner && <span>From {task.owner_name}</span>}
+                    {task.is_owner && task.members.length > 0 && <span>Shared</span>}
                   </div>
                 </div>
               ))}

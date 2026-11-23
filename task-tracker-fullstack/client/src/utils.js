@@ -3,6 +3,7 @@
 export const STATUS_LABELS = { todo: "To do", doing: "In progress", done: "Done" };
 export const PRIORITIES = ["high", "medium", "low"];
 export const CATEGORIES = ["School", "Work", "Personal", "Project"];
+export const REPEAT_LABELS = { none: "Does not repeat", daily: "Every day", weekly: "Every week", monthly: "Every month" };
 
 // Turns a Date into text like "2026-11-23"
 export function dateString(date) {
@@ -16,15 +17,31 @@ export function todayString() {
 }
 
 export function tomorrowString() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return dateString(tomorrow);
+  return daysFromToday(1);
+}
+
+// daysFromToday(-6) is the date 6 days ago
+export function daysFromToday(amount) {
+  const date = new Date();
+  date.setDate(date.getDate() + amount);
+  return dateString(date);
 }
 
 // "2026-11-23" becomes "Nov 23"
 export function formatDate(text) {
   const [year, month, day] = text.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// The server saves times in UTC like "2026-11-23 06:15:00". This shows them in local time.
+export function formatDateTime(text) {
+  const date = new Date(text); // Postgres sends an ISO time like 2026-11-23T13:00:00.000Z
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+export function formatSize(bytes) {
+  if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 export function isOverdue(task) {
@@ -38,16 +55,19 @@ export function subtaskProgress(task) {
   return done + "/" + task.subtasks.length;
 }
 
-// Download all tasks as a CSV file (opens in Excel)
+// Download tasks as a CSV file (opens in Excel)
 export function exportCsv(tasks) {
-  const header = ["Title", "Status", "Priority", "Category", "Due date", "Subtasks done"];
+  const header = ["Title", "Status", "Priority", "Category", "Tags", "Due date", "Repeat", "Subtasks done", "Notes"];
   const rows = tasks.map((task) => [
     task.title,
     STATUS_LABELS[task.status],
     task.priority,
     task.category,
+    task.tags.join(" "),
     task.due,
+    REPEAT_LABELS[task.repeat_every],
     subtaskProgress(task),
+    task.notes,
   ]);
 
   // Put quotes around every value so commas inside titles do not break the file

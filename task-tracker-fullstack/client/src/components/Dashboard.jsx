@@ -76,6 +76,7 @@ export default function Dashboard({ tasks, user, onOpen }) {
               <tr><td>Overdue</td><td className={stats.overdue > 0 ? "overdue" : ""}>{stats.overdue}</td></tr>
               <tr><td>All tasks</td><td>{stats.total}</td></tr>
               <tr><td>Day streak</td><td>{stats.streak}</td></tr>
+              <tr><td>Focus time (7 days)</td><td>{stats.focusMinutes} min</td></tr>
             </tbody>
           </table>
         </section>

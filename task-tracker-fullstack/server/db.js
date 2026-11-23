@@ -1,40 +1,46 @@
-// Database setup. We use SQLite: the whole database is one file (tasks.db).
-import Database from "better-sqlite3";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+// Database: Supabase Postgres. We connect with the "pg" package.
+// Use the Transaction pooler address (port 6543) from Supabase, because Vercel starts many short-lived functions.
+// The tables are made by supabase/schema.sql (run it once in the Supabase SQL Editor).
+import pg from "pg";
+import { config } from "./config.js";
 
-const folder = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(folder, "tasks.db"));
+// Let Postgres "integer" columns come back as JS numbers, and COUNT/SUM (bigint) too.
+pg.types.setTypeParser(20, (value) => Number(value));
 
-db.pragma("foreign_keys = ON");
+const local = /localhost|127\.0\.0\.1/.test(config.databaseUrl);
+const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  ssl: local ? false : { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 10000,
+});
 
-// These tables are created automatically the first time the server runs.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    name     TEXT NOT NULL,
-    email    TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL
-  );
+// Run one query. Returns the rows.
+export async function all(sql, params = [], client = pool) {
+  const result = await client.query(sql, params);
+  return result.rows;
+}
 
-  CREATE TABLE IF NOT EXISTS tasks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    title        TEXT NOT NULL,
-    priority     TEXT NOT NULL DEFAULT 'medium',
-    category     TEXT NOT NULL DEFAULT 'School',
-    due          TEXT NOT NULL DEFAULT '',
-    status       TEXT NOT NULL DEFAULT 'todo',
-    position     INTEGER NOT NULL DEFAULT 0,
-    completed_at TEXT
-  );
+// Run one query. Returns the first row (or undefined).
+export async function one(sql, params = [], client = pool) {
+  return (await all(sql, params, client))[0];
+}
 
-  CREATE TABLE IF NOT EXISTS subtasks (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    title   TEXT NOT NULL,
-    done    INTEGER NOT NULL DEFAULT 0
-  );
-`);
+// Run many queries together. If something fails, nothing is saved.
+// The function receives a "client" to pass as the last argument of all() / one().
+export async function transaction(work) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
-export default db;
+export default pool;

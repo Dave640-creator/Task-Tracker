@@ -6,13 +6,17 @@ import Dashboard from "./components/Dashboard.jsx";
 import Board from "./components/Board.jsx";
 import TaskList from "./components/TaskList.jsx";
 import Calendar from "./components/Calendar.jsx";
+import Report from "./components/Report.jsx";
+import Settings from "./components/Settings.jsx";
 import TaskModal from "./components/TaskModal.jsx";
+import FocusTimer from "./components/FocusTimer.jsx";
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard" },
   { id: "board", label: "Board" },
   { id: "list", label: "List" },
   { id: "calendar", label: "Calendar" },
+  { id: "report", label: "Report" },
 ];
 
 export default function App() {
@@ -21,7 +25,18 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [page, setPage] = useState("dashboard");
   const [editingId, setEditingId] = useState(null); // null = closed, "new" = new task, or a task id
+  const [focusTask, setFocusTask] = useState(null); // the task being timed
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState(getStartTheme);
+
+  // The reset link looks like  /?reset=abc123
+  const [resetToken] = useState(() => new URLSearchParams(window.location.search).get("reset") || "");
+
+  // Light or dark mode
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   // When the page opens, check if the user is still logged in
   useEffect(() => {
@@ -38,6 +53,12 @@ export default function App() {
   }, [user]);
 
   useReminders(tasks);
+
+  function getStartTheme() {
+    const saved = localStorage.getItem("theme");
+    if (saved) return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
 
   async function loadTasks() {
     try {
@@ -66,12 +87,14 @@ export default function App() {
   function login(data) {
     setToken(data.token);
     setUser(data.user);
+    setPage("dashboard");
   }
 
   function logout() {
     setToken(null);
     setUser(null);
     setTasks([]);
+    setFocusTask(null);
   }
 
   // ----- Task actions -----
@@ -102,10 +125,15 @@ export default function App() {
     run(() => api.reorder(items));
   }
 
+  function startFocus(task) {
+    setEditingId(null);
+    setFocusTask({ id: task.id, title: task.title });
+  }
+
   // ----- Screens -----
 
   if (checking) return <p className="center-message">Loading...</p>;
-  if (!user) return <Login onLogin={login} />;
+  if (!user) return <Login onLogin={login} resetToken={resetToken} />;
 
   const editingTask = tasks.find((t) => t.id === editingId);
 
@@ -122,9 +150,12 @@ export default function App() {
         </nav>
         <div className="topbar-right">
           <button className="btn btn-primary" onClick={() => setEditingId("new")}>New task</button>
-          <span className="avatar">{user.name[0].toUpperCase()}</span>
-          <span className="user-name">{user.name}</span>
-          <button className="btn" onClick={logout}>Log out</button>
+          <button className="btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+          <button className={page === "settings" ? "avatar active" : "avatar"} title="Settings" onClick={() => setPage("settings")}>
+            {user.name[0].toUpperCase()}
+          </button>
         </div>
       </header>
 
@@ -135,18 +166,29 @@ export default function App() {
         {page === "board" && <Board tasks={tasks} onOpen={setEditingId} onReorder={reorder} />}
         {page === "list" && <TaskList tasks={tasks} onOpen={setEditingId} onToggle={toggleDone} onNew={() => setEditingId("new")} />}
         {page === "calendar" && <Calendar tasks={tasks} onOpen={setEditingId} />}
+        {page === "report" && <Report tasks={tasks} user={user} />}
+        {page === "settings" && <Settings user={user} onUserChange={setUser} onLogout={logout} />}
       </main>
 
       {editingId && (
         <TaskModal
           key={editingId}
           task={editingTask}
+          user={user}
           onSave={saveTask}
           onDelete={deleteTask}
           onClose={() => setEditingId(null)}
-          onAddSubtask={(title) => run(() => api.addSubtask(editingId, title))}
-          onToggleSubtask={(sub) => run(() => api.updateSubtask(sub.id, { done: !sub.done }))}
-          onDeleteSubtask={(sub) => run(() => api.deleteSubtask(sub.id))}
+          onChange={loadTasks}
+          onFocus={startFocus}
+        />
+      )}
+
+      {focusTask && (
+        <FocusTimer
+          key={focusTask.id}
+          task={focusTask}
+          onFocusDone={(minutes) => api.logFocus({ taskId: focusTask.id, minutes }).catch(() => {})}
+          onClose={() => setFocusTask(null)}
         />
       )}
     </div>

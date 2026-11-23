@@ -53,7 +53,7 @@ export default function Calendar({ tasks, onOpen }) {
             <div key={cell.date} className={cell.date === today ? "calendar-cell today" : "calendar-cell"}>
               <div className="calendar-day">{cell.day}</div>
               {dayTasks.slice(0, 3).map((task) => (
-                <button key={task.id} className={"calendar-task priority-" + task.priority + (task.status === "done" ? " done-text" : "")}
+                <button key={task.id} className={"calendar-task " + task.priority + (task.status === "done" ? " done-text" : "")}
                   onClick={() => onOpen(task.id)}>
                   {task.title}
                 </button>

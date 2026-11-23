@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { CATEGORIES, PRIORITIES, STATUS_LABELS } from "../utils.js";
+import { CATEGORIES, PRIORITIES, REPEAT_LABELS, STATUS_LABELS } from "../utils.js";
+import SubtaskList from "./SubtaskList.jsx";
+import Attachments from "./Attachments.jsx";
+import Sharing from "./Sharing.jsx";
+import ActivityLog from "./ActivityLog.jsx";
 
 // One popup for both adding a new task and editing an existing one.
 // "task" is empty when adding a new task.
-export default function TaskModal({ task, onSave, onDelete, onClose, onAddSubtask, onToggleSubtask, onDeleteSubtask }) {
+export default function TaskModal({ task, user, onSave, onDelete, onClose, onChange, onFocus }) {
   const isNew = !task;
 
   const [form, setForm] = useState({
@@ -12,8 +16,10 @@ export default function TaskModal({ task, onSave, onDelete, onClose, onAddSubtas
     category: task ? task.category : "School",
     due: task ? task.due : "",
     status: task ? task.status : "todo",
+    repeat_every: task ? task.repeat_every : "none",
+    tags: task ? task.tags.join(", ") : "",
+    notes: task ? task.notes : "",
   });
-  const [subtaskTitle, setSubtaskTitle] = useState("");
   const [error, setError] = useState("");
 
   // Close with the Escape key
@@ -38,13 +44,6 @@ export default function TaskModal({ task, onSave, onDelete, onClose, onAddSubtas
     onSave(form);
   }
 
-  function addSubtask(e) {
-    e.preventDefault();
-    if (!subtaskTitle.trim()) return;
-    onAddSubtask(subtaskTitle);
-    setSubtaskTitle("");
-  }
-
   function remove() {
     if (window.confirm("Delete this task?")) onDelete(task.id);
   }
@@ -52,7 +51,10 @@ export default function TaskModal({ task, onSave, onDelete, onClose, onAddSubtas
   return (
     <div className="modal-backdrop no-print" onClick={onClose}>
       <div className="modal" role="dialog" aria-label={isNew ? "New task" : "Edit task"} onClick={(e) => e.stopPropagation()}>
-        <h2>{isNew ? "New task" : "Edit task"}</h2>
+        <div className="modal-head">
+          <h2>{isNew ? "New task" : "Edit task"}</h2>
+          {!isNew && <button type="button" className="btn" onClick={() => onFocus(task)}>Start focus timer</button>}
+        </div>
 
         <form onSubmit={submit}>
           {error && <p className="error">{error}</p>}
@@ -90,35 +92,40 @@ export default function TaskModal({ task, onSave, onDelete, onClose, onAddSubtas
             </label>
           </div>
 
+          <div className="form-row">
+            <label className="field">
+              Repeat
+              <select name="repeat_every" value={form.repeat_every} onChange={change}>
+                {Object.keys(REPEAT_LABELS).map((r) => <option key={r} value={r}>{REPEAT_LABELS[r]}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Tags (separate with commas)
+              <input name="tags" value={form.tags} onChange={change} placeholder="thesis, exam" />
+            </label>
+          </div>
+
+          <label className="field">
+            Notes
+            <textarea name="notes" value={form.notes} onChange={change} rows={3} maxLength={2000} />
+          </label>
+
           <div className="modal-buttons">
-            {!isNew && <button type="button" className="btn btn-danger" onClick={remove}>Delete</button>}
+            {!isNew && task.is_owner && <button type="button" className="btn btn-danger" onClick={remove}>Delete</button>}
             <span className="spacer" />
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary">{isNew ? "Add task" : "Save changes"}</button>
           </div>
         </form>
 
-        {/* Subtasks can only be added after the task exists */}
+        {/* These parts only make sense after the task has been saved */}
         {!isNew && (
-          <div className="subtasks">
-            <h3>Subtasks</h3>
-            {task.subtasks.length === 0 && <p className="muted small">No subtasks yet.</p>}
-            <ul className="plain-list">
-              {task.subtasks.map((sub) => (
-                <li key={sub.id} className="subtask-row">
-                  <label>
-                    <input type="checkbox" checked={sub.done} onChange={() => onToggleSubtask(sub)} />
-                    <span className={sub.done ? "done-text" : ""}>{sub.title}</span>
-                  </label>
-                  <button type="button" className="link" onClick={() => onDeleteSubtask(sub)}>Remove</button>
-                </li>
-              ))}
-            </ul>
-            <form className="subtask-add" onSubmit={addSubtask}>
-              <input placeholder="Add a subtask" value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} aria-label="New subtask" />
-              <button type="submit" className="btn">Add</button>
-            </form>
-          </div>
+          <>
+            <SubtaskList task={task} onChange={onChange} />
+            <Attachments task={task} onChange={onChange} />
+            <Sharing task={task} user={user} onChange={onChange} />
+            <ActivityLog task={task} />
+          </>
         )}
       </div>
     </div>

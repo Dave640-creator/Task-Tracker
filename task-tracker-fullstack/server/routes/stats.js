@@ -1,15 +1,16 @@
 import { Router } from "express";
-import db from "../db.js";
+import { one, all } from "../db.js";
 import { requireLogin } from "../auth.js";
+import { myTaskIds } from "../access.js";
 import { dateString, todayString } from "../dates.js";
 
 const router = Router();
 router.use(requireLogin);
 
-// Numbers for the dashboard
-router.get("/", (req, res) => {
+// Numbers for the dashboard and the weekly report
+router.get("/", async (req, res) => {
   const today = todayString();
-  const tasks = db.prepare("SELECT status, due, completed_at FROM tasks WHERE user_id = ?").all(req.userId);
+  const tasks = await all("SELECT status, due, completed_at FROM tasks WHERE id IN (" + myTaskIds(1) + ")", [req.userId]);
 
   const countStatus = (status) => tasks.filter((t) => t.status === status).length;
   const overdue = tasks.filter((t) => t.status !== "done" && t.due && t.due < today).length;
@@ -40,6 +41,12 @@ router.get("/", (req, res) => {
     day.setDate(day.getDate() - 1);
   }
 
+  // Minutes of focus time in the last 7 days
+  const focus = await one("SELECT COALESCE(SUM(minutes), 0)::int AS total FROM focus_sessions WHERE user_id = $1 AND day >= $2", [
+    req.userId,
+    last7days[0].date,
+  ]);
+
   res.json({
     total: tasks.length,
     todo: countStatus("todo"),
@@ -48,6 +55,7 @@ router.get("/", (req, res) => {
     overdue,
     last7days,
     streak,
+    focusMinutes: focus.total,
   });
 });
 
