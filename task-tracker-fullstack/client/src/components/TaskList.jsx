@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { STATUS_LABELS, exportCsv, formatDate, isOverdue, subtaskProgress } from "../utils.js";
 
-export default function TaskList({ tasks, onOpen, onToggle }) {
+export default function TaskList({ tasks, onOpen, onToggle, onNew }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
 
@@ -28,7 +28,16 @@ export default function TaskList({ tasks, onOpen, onToggle }) {
       </div>
 
       {shown.length === 0 ? (
-        <p className="muted">{tasks.length === 0 ? "No tasks yet. Click New task to add one." : "No tasks match your search."}</p>
+        <div className="empty-box">
+          {tasks.length === 0 ? (
+            <>
+              <p>You have no tasks yet.</p>
+              <button className="btn btn-primary" onClick={onNew}>Add your first task</button>
+            </>
+          ) : (
+            <p>No tasks match your search.</p>
+          )}
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="table">
@@ -55,8 +64,8 @@ export default function TaskList({ tasks, onOpen, onToggle }) {
                       {task.title}
                     </button>
                   </td>
-                  <td>{task.category}</td>
-                  <td><span className={"priority-text " + task.priority}>{task.priority}</span></td>
+                  <td><span className="tag">{task.category}</span></td>
+                  <td><span className={"tag " + task.priority}>{task.priority}</span></td>
                   <td className={isOverdue(task) ? "overdue" : ""}>{task.due ? formatDate(task.due) : "-"}</td>
                   <td>{subtaskProgress(task) || "-"}</td>
                   <td>{STATUS_LABELS[task.status]}</td>

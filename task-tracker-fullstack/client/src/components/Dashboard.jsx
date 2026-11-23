@@ -3,7 +3,7 @@ import { api } from "../api.js";
 import { enableReminders } from "../useReminders.js";
 import { formatDate, todayString } from "../utils.js";
 
-export default function Dashboard({ tasks, onOpen }) {
+export default function Dashboard({ tasks, user, onOpen }) {
   const [stats, setStats] = useState(null);
   const [permission, setPermission] = useState("Notification" in window ? Notification.permission : "unsupported");
 
@@ -24,10 +24,15 @@ export default function Dashboard({ tasks, onOpen }) {
   if (!stats) return <p className="muted">Loading...</p>;
 
   const highest = Math.max(1, ...stats.last7days.map((d) => d.count));
+  const percentDone = stats.total === 0 ? 0 : Math.round((stats.done / stats.total) * 100);
+  const firstName = user.name.split(" ")[0];
 
   return (
     <div>
-      <h1 className="page-title">Dashboard</h1>
+      <h1 className="page-title">Hello, {firstName}</h1>
+      <p className="muted greeting">
+        {urgent.length === 0 ? "Nothing is due today. Nice work." : urgent.length + " task(s) need your attention."}
+      </p>
 
       <div className="two-columns">
         <section className="panel">
@@ -60,7 +65,9 @@ export default function Dashboard({ tasks, onOpen }) {
         </section>
 
         <section className="panel">
-          <h2>Summary</h2>
+          <h2>Progress</h2>
+          <div className="progress"><div className="progress-fill" style={{ width: percentDone + "%" }} /></div>
+          <p className="muted small progress-text">{percentDone}% of your tasks are done</p>
           <table className="table summary">
             <tbody>
               <tr><td>To do</td><td>{stats.todo}</td></tr>

@@ -122,6 +122,7 @@ export default function App() {
         </nav>
         <div className="topbar-right">
           <button className="btn btn-primary" onClick={() => setEditingId("new")}>New task</button>
+          <span className="avatar">{user.name[0].toUpperCase()}</span>
           <span className="user-name">{user.name}</span>
           <button className="btn" onClick={logout}>Log out</button>
         </div>
@@ -130,9 +131,9 @@ export default function App() {
       <main className="page">
         {error && <p className="error">{error}</p>}
 
-        {page === "dashboard" && <Dashboard tasks={tasks} onOpen={setEditingId} />}
+        {page === "dashboard" && <Dashboard tasks={tasks} user={user} onOpen={setEditingId} />}
         {page === "board" && <Board tasks={tasks} onOpen={setEditingId} onReorder={reorder} />}
-        {page === "list" && <TaskList tasks={tasks} onOpen={setEditingId} onToggle={toggleDone} />}
+        {page === "list" && <TaskList tasks={tasks} onOpen={setEditingId} onToggle={toggleDone} onNew={() => setEditingId("new")} />}
         {page === "calendar" && <Calendar tasks={tasks} onOpen={setEditingId} />}
       </main>
 

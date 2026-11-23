@@ -42,7 +42,7 @@ export default function Board({ tasks, onOpen, onReorder }) {
           return (
             <section
               key={status}
-              className="column"
+              className={"column column-" + status}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => drop(status, null)}
             >
@@ -65,6 +65,7 @@ export default function Board({ tasks, onOpen, onReorder }) {
                 >
                   <div className={task.status === "done" ? "card-title done-text" : "card-title"}>{task.title}</div>
                   <div className="card-meta">
+                    <span className={"tag " + task.priority}>{task.priority}</span>
                     <span>{task.category}</span>
                     {task.due && <span className={isOverdue(task) ? "overdue" : ""}>{formatDate(task.due)}</span>}
                     {task.subtasks.length > 0 && <span>Subtasks {subtaskProgress(task)}</span>}
