@@ -1,214 +1,152 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api.js";
+import { useEffect, useState } from "react";
+import { api, getToken, setToken } from "./api.js";
+import useReminders from "./useReminders.js";
+import Login from "./components/Login.jsx";
+import Dashboard from "./components/Dashboard.jsx";
+import Board from "./components/Board.jsx";
+import TaskList from "./components/TaskList.jsx";
+import Calendar from "./components/Calendar.jsx";
+import TaskModal from "./components/TaskModal.jsx";
 
-const PRIO = { high: 0, medium: 1, low: 2 };
-
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-const fmtDate = (s) => {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
-
-function Item({ task, onToggle, onEdit, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(task.title);
-  const overdue = task.due && !task.done && task.due < todayStr();
-
-  const commit = () => {
-    const x = val.trim();
-    if (x && x !== task.title) onEdit(task.id, x);
-    else setVal(task.title);
-    setEditing(false);
-  };
-
-  return (
-    <li className={`p-${task.priority}${task.done ? " done" : ""}`}>
-      <input type="checkbox" checked={task.done} onChange={() => onToggle(task)} aria-label={`Mark ${task.title} as done`} />
-      <div className="body">
-        {editing ? (
-          <input
-            className="edit"
-            autoFocus
-            value={val}
-            aria-label="Edit task title"
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commit();
-              if (e.key === "Escape") { setVal(task.title); setEditing(false); }
-            }}
-          />
-        ) : (
-          <div className="t" onDoubleClick={() => setEditing(true)} title="Double-click to edit">{task.title}</div>
-        )}
-        <div className="meta">
-          <span className="chip">{task.category}</span>
-          <span>{task.priority} priority</span>
-          {task.due && <span className={overdue ? "overdue" : ""}>{overdue ? "Overdue: " : "Due "}{fmtDate(task.due)}</span>}
-        </div>
-      </div>
-      <div className="row-btns">
-        <button onClick={() => setEditing(true)} aria-label={`Edit ${task.title}`}>Edit</button>
-        <button className="del" onClick={() => onDelete(task)} aria-label={`Delete ${task.title}`}>Delete</button>
-      </div>
-    </li>
-  );
-}
+const PAGES = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "board", label: "Board" },
+  { id: "list", label: "List" },
+  { id: "calendar", label: "Calendar" },
+];
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(Boolean(getToken())); // true while we check the saved login
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState("dashboard");
+  const [editingId, setEditingId] = useState(null); // null = closed, "new" = new task, or a task id
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const [form, setForm] = useState({ title: "", priority: "medium", category: "School", due: "" });
-  const [undo, setUndo] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem("tt-theme") || "");
-  const timer = useRef(null);
 
+  // When the page opens, check if the user is still logged in
   useEffect(() => {
-    api.list().then(setTasks).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    if (!getToken()) return;
+    api.me()
+      .then(setUser)
+      .catch(() => setToken(null))
+      .finally(() => setChecking(false));
   }, []);
 
+  // Load the tasks after logging in
   useEffect(() => {
-    if (theme) document.documentElement.setAttribute("data-theme", theme);
-    else document.documentElement.removeAttribute("data-theme");
-    localStorage.setItem("tt-theme", theme);
-  }, [theme]);
+    if (user) loadTasks();
+  }, [user]);
 
-  const run = async (fn) => {
+  useReminders(tasks);
+
+  async function loadTasks() {
+    try {
+      setTasks(await api.getTasks());
+    } catch (err) {
+      handleError(err);
+    }
+  }
+
+  function handleError(err) {
+    if (err.status === 401) logout();
+    else setError(err.message);
+  }
+
+  // Runs one server action, then reloads the tasks so the screen is up to date
+  async function run(action) {
     setError("");
-    try { await fn(); } catch (e) { setError(e.message); }
-  };
+    try {
+      await action();
+      await loadTasks();
+    } catch (err) {
+      handleError(err);
+    }
+  }
 
-  const add = (e) => {
-    e.preventDefault();
-    if (!form.title.trim()) return;
-    run(async () => {
-      const t = await api.create(form);
-      setTasks((prev) => [t, ...prev]);
-      setForm({ ...form, title: "", due: "" });
+  function login(data) {
+    setToken(data.token);
+    setUser(data.user);
+  }
+
+  function logout() {
+    setToken(null);
+    setUser(null);
+    setTasks([]);
+  }
+
+  // ----- Task actions -----
+
+  function saveTask(form) {
+    if (editingId === "new") run(() => api.createTask(form));
+    else run(() => api.updateTask(editingId, form));
+    setEditingId(null);
+  }
+
+  function deleteTask(id) {
+    run(() => api.deleteTask(id));
+    setEditingId(null);
+  }
+
+  function toggleDone(task) {
+    const status = task.status === "done" ? "todo" : "done";
+    run(() => api.updateTask(task.id, { status }));
+  }
+
+  // Used by drag and drop. We update the screen first so it feels fast.
+  function reorder(items) {
+    const updated = tasks.map((task) => {
+      const item = items.find((i) => i.id === task.id);
+      return item ? { ...task, status: item.status, position: item.position } : task;
     });
-  };
+    setTasks(updated.sort((a, b) => a.position - b.position));
+    run(() => api.reorder(items));
+  }
 
-  const toggle = (task) =>
-    run(async () => {
-      const t = await api.update(task.id, { done: !task.done });
-      setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)));
-    });
+  // ----- Screens -----
 
-  const edit = (id, title) =>
-    run(async () => {
-      const t = await api.update(id, { title });
-      setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)));
-    });
+  if (checking) return <p className="center-message">Loading...</p>;
+  if (!user) return <Login onLogin={login} />;
 
-  const del = (task) =>
-    run(async () => {
-      await api.remove(task.id);
-      setTasks((prev) => prev.filter((x) => x.id !== task.id));
-      setUndo(task);
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => setUndo(null), 5000);
-    });
-
-  const restore = () =>
-    run(async () => {
-      const { id, createdAt, ...rest } = undo;
-      const t = await api.create(rest);
-      setTasks((prev) => [t, ...prev]);
-      setUndo(null);
-    });
-
-  const clearDone = () =>
-    run(async () => {
-      await api.clearDone();
-      setTasks((prev) => prev.filter((t) => !t.done));
-    });
-
-  const done = tasks.filter((t) => t.done).length;
-  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return tasks
-      .filter((t) => {
-        if (filter === "active" && t.done) return false;
-        if (filter === "done" && !t.done) return false;
-        return !q || t.title.toLowerCase().includes(q) || t.category.toLowerCase().includes(q);
-      })
-      .sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
-        if (PRIO[a.priority] !== PRIO[b.priority]) return PRIO[a.priority] - PRIO[b.priority];
-        return (a.due || "9999") < (b.due || "9999") ? -1 : 1;
-      });
-  }, [tasks, filter, query]);
-
-  const isDark = theme ? theme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const editingTask = tasks.find((t) => t.id === editingId);
 
   return (
-    <div className="wrap">
-      <header>
-        <div>
-          <h1>Task Tracker</h1>
-          <p className="sub">{done} of {tasks.length} done</p>
-        </div>
-        <button className="icon-btn" onClick={() => setTheme(isDark ? "light" : "dark")}>{isDark ? "Light mode" : "Dark mode"}</button>
-      </header>
-
-      <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div style={{ width: pct + "%" }} />
-      </div>
-
-      {error && <div className="error" role="alert">{error}</div>}
-
-      <form className="add" onSubmit={add}>
-        <input className="title" placeholder="What needs to get done?" value={form.title} onChange={set("title")} aria-label="Task title" maxLength={200} />
-        <select value={form.priority} onChange={set("priority")} aria-label="Priority">
-          <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
-        </select>
-        <select value={form.category} onChange={set("category")} aria-label="Category">
-          {["School", "Work", "Personal", "Project"].map((c) => <option key={c}>{c}</option>)}
-        </select>
-        <input type="date" value={form.due} onChange={set("due")} aria-label="Due date" />
-        <button className="primary" type="submit">Add task</button>
-      </form>
-
-      <div className="bar">
-        <div className="tabs">
-          {["all", "active", "done"].map((k) => (
-            <button key={k} className="tab" aria-pressed={filter === k} onClick={() => setFilter(k)}>
-              {k[0].toUpperCase() + k.slice(1)}
+    <div>
+      <header className="topbar no-print">
+        <strong className="brand">Task Tracker</strong>
+        <nav className="tabs">
+          {PAGES.map((p) => (
+            <button key={p.id} className={page === p.id ? "tab active" : "tab"} onClick={() => setPage(p.id)}>
+              {p.label}
             </button>
           ))}
+        </nav>
+        <div className="topbar-right">
+          <button className="btn btn-primary" onClick={() => setEditingId("new")}>New task</button>
+          <span className="user-name">{user.name}</span>
+          <button className="btn" onClick={logout}>Log out</button>
         </div>
-        <input className="search" type="search" placeholder="Search tasks" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search tasks" />
-      </div>
+      </header>
 
-      {loading ? (
-        <div className="empty">Loading tasks...</div>
-      ) : visible.length ? (
-        <ul>{visible.map((t) => <Item key={t.id} task={t} onToggle={toggle} onEdit={edit} onDelete={del} />)}</ul>
-      ) : (
-        <div className="empty">{tasks.length === 0 ? "No tasks yet. Type one above and press Add task." : "Nothing matches. Try another filter or search."}</div>
-      )}
+      <main className="page">
+        {error && <p className="error">{error}</p>}
 
-      {tasks.length > 0 && (
-        <div className="foot">
-          <span>{tasks.length - done} left</span>
-          {done > 0 && <button className="link" onClick={clearDone}>Clear completed ({done})</button>}
-        </div>
-      )}
+        {page === "dashboard" && <Dashboard tasks={tasks} onOpen={setEditingId} />}
+        {page === "board" && <Board tasks={tasks} onOpen={setEditingId} onReorder={reorder} />}
+        {page === "list" && <TaskList tasks={tasks} onOpen={setEditingId} onToggle={toggleDone} />}
+        {page === "calendar" && <Calendar tasks={tasks} onOpen={setEditingId} />}
+      </main>
 
-      {undo && (
-        <div className="toast" role="status">
-          <span>Task deleted</span>
-          <button onClick={restore}>Undo</button>
-        </div>
+      {editingId && (
+        <TaskModal
+          key={editingId}
+          task={editingTask}
+          onSave={saveTask}
+          onDelete={deleteTask}
+          onClose={() => setEditingId(null)}
+          onAddSubtask={(title) => run(() => api.addSubtask(editingId, title))}
+          onToggleSubtask={(sub) => run(() => api.updateSubtask(sub.id, { done: !sub.done }))}
+          onDeleteSubtask={(sub) => run(() => api.deleteSubtask(sub.id))}
+        />
       )}
     </div>
   );
